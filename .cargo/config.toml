@@ -1,0 +1,8 @@
+[build]
+# `leptonic` depends on some `leptos-use` functions requiring this opt-in. This may change in the future.
+rustflags = ["--cfg=web_sys_unstable_apis"]
+
+# Define environment variable at compile time.
+[env]
+# LEPTOS_OUTPUT_NAME may not need to be defined here, because it has already been defined in leptos.
+LEPTOS_OUTPUT_NAME = "llm-tools"
