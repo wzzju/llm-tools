@@ -3,7 +3,6 @@ use crate::components::*;
 use http::status::StatusCode;
 use leptonic::components::prelude::*;
 use leptos::*;
-use log::error;
 use thiserror::Error;
 
 #[derive(Clone, Debug, Error)]
@@ -42,7 +41,7 @@ pub fn ErrorPage(
         .into_iter()
         .filter_map(|(_k, v)| v.downcast_ref::<AppError>().cloned())
         .collect();
-    error!("Errors: {errors:#?}");
+    tracing::error!("Errors: {errors:#?}");
 
     let num_errors = errors.len();
 
