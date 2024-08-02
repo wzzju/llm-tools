@@ -21,7 +21,7 @@ log = "0.4.22"
 time = { version = "0.3.34", features = ["wasm-bindgen"] }
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 tower = { version = "0.4", optional = true }
-tower-http = { version = "0.5", features = ["fs"], optional = true }
+tower-http = { version = "0.5", features = ["compression-full", "fs"], optional = true }
 leptonic = { git = "https://github.com/lpotthast/leptonic.git", branch = "main", features = [
   "nightly",
 ] }
