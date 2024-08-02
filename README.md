@@ -1,6 +1,6 @@
-<picture>
-    <img src="/assets/logo.png" alt="LLM-Tools Logo" height="200">
-</picture>
+<p align="center">
+    <img src="/public/images/logo.png" alt="LLM-Tools Logo" height="200">
+</p>
 
 ## Prepare
 
