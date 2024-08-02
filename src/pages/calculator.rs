@@ -25,7 +25,14 @@ impl std::fmt::Display for Model {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+enum TrainMode {
+    FP16,
+    BF16,
+}
+
 #[component]
+#[allow(clippy::too_many_lines)]
 pub fn CalculatorPage() -> impl IntoView {
     let toasts = expect_context::<Toasts>();
 
@@ -33,6 +40,8 @@ pub fn CalculatorPage() -> impl IntoView {
     let (zero_level, set_zero_level) = create_signal(1);
 
     let (model, set_model) = create_signal(Model::Llama3_70B);
+    let (train_mode, set_train_mode) = create_signal(TrainMode::BF16);
+    let (params, set_params) = create_signal(70.0);
     let (layers, set_layers) = create_signal(80.0);
     let (hidden_size, set_hidden_size) = create_signal(8192.0);
     let (mem_useage, set_mem_useage) = create_signal(Option::<f64>::None);
@@ -60,27 +69,37 @@ pub fn CalculatorPage() -> impl IntoView {
     // Adjust model parameters when the model type changes.
     create_effect(move |_| match model() {
         Model::Llama2_7B => {
+            set_train_mode(TrainMode::FP16);
             set_layers(32.0);
+            set_params(7.0);
             set_hidden_size(4096.0);
             set_mem_useage(None);
         }
         Model::Llama2_13B => {
+            set_train_mode(TrainMode::FP16);
             set_layers(40.0);
+            set_params(13.0);
             set_hidden_size(5120.0);
             set_mem_useage(None);
         }
         Model::Llama2_70B => {
+            set_train_mode(TrainMode::FP16);
             set_layers(80.0);
+            set_params(70.0);
             set_hidden_size(8192.0);
             set_mem_useage(None);
         }
         Model::Llama3_8B => {
+            set_train_mode(TrainMode::BF16);
             set_layers(32.0);
+            set_params(8.0);
             set_hidden_size(4096.0);
             set_mem_useage(None);
         }
         Model::Llama3_70B => {
+            set_train_mode(TrainMode::BF16);
             set_layers(80.0);
+            set_params(70.0);
             set_hidden_size(8192.0);
             set_mem_useage(None);
         }
@@ -110,6 +129,32 @@ pub fn CalculatorPage() -> impl IntoView {
                                 set_selected=set_model
                                 class="w-36"
                             />
+                        </FormControl>
+
+                        <FormControl class="flex flex-row">
+                            <Label class="w-28 mr-1">"Train Mode"</Label>
+                            <Select
+                                options=vec![TrainMode::FP16, TrainMode::BF16]
+
+                                search_text_provider=move |option| format!("{:?}", option)
+                                render_option=move |option| format!("{:?}", option)
+                                selected=train_mode
+                                set_selected=set_train_mode
+                                class="w-36"
+                            />
+                        </FormControl>
+
+                        <FormControl class="flex flex-row">
+                            <Label class="w-28 mr-1">"Parameters"</Label>
+                            <NumberInput
+                                min=0.0
+                                max=1000.0
+                                step=0.001
+                                get=params
+                                set=set_params
+                                class="w-36"
+                            />
+                            <Label class="ml-1">"B"</Label>
                         </FormControl>
 
                         <FormControl class="flex flex-row">
@@ -194,9 +239,13 @@ pub fn CalculatorPage() -> impl IntoView {
                 <Col xs=6 class="border border-gray-300 rounded-md p-2">
                     <div class="flex flex-col gap-2">
                         <P class="text-gray-500">
-                            "Model Type: " {move || { format!("{}", model()) }}
+                            "Model Type: " {move || { format!("{}", model()) }} ", Train Mode: "
+                            {move || { format!("{:?}", train_mode()) }}
                         </P>
-                        <P class="text-gray-500">"Layer Number: " {move || layers() as i64}</P>
+                        <P class="text-gray-500">
+                            "Parameters: " {move || params()} " B, Layer Number: "
+                            {move || layers() as i64}
+                        </P>
                         <P class="text-gray-500">"Hidden Size: " {move || hidden_size() as i64}</P>
                     </div>
                 </Col>

@@ -82,12 +82,8 @@ pub fn MainLayout(#[prop(optional)] children: Option<Children>) -> impl IntoView
                         }
                         false => {
                             view! {
-                                <Link href="https://github.com/lpotthast/leptonic/releases">
-                                    "v0.6.0 (main)"
-                                </Link>
-
                                 <LinkExt
-                                    href="https://github.com/lpotthast/leptonic"
+                                    href="https://github.com/wzzju/llm-tools"
                                     target=LinkExtTarget::Blank
                                 >
                                     <Icon
@@ -147,16 +143,12 @@ pub fn MainLayout(#[prop(optional)] children: Option<Children>) -> impl IntoView
                     />
 
                     <LinkExt
-                        href="https://github.com/lpotthast/leptonic"
+                        href="https://github.com/wzzju/llm-tools"
                         target=LinkExtTarget::Blank
                         style="font-size: 3em;"
                     >
                         <Icon id="github-icon" icon=icondata::BsGithub/>
                     </LinkExt>
-
-                    <Link href="https://github.com/lpotthast/leptonic/releases">
-                        "v0.6.0 (main)"
-                    </Link>
                 </Stack>
             </Drawer>
         </Box>

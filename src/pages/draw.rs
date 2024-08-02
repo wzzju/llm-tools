@@ -23,10 +23,116 @@ struct LossDiff {
     rel: f64,
 }
 
+#[derive(Copy, Clone, Debug, Deserialize, Default)]
+pub struct Feature {
+    max_diff: (f64, usize),
+    min_diff: (f64, usize),
+    mean_diff: f64,
+    max_abs_diff: (f64, usize),
+    min_abs_diff: (f64, usize),
+    mean_abs_diff: f64,
+    min_p_diff: (f64, usize),
+    max_n_diff: (f64, usize),
+}
+
+impl Feature {
+    pub fn new(
+        max_diff: (f64, usize),
+        min_diff: (f64, usize),
+        mean_diff: f64,
+        max_abs_diff: (f64, usize),
+        min_abs_diff: (f64, usize),
+        mean_abs_diff: f64,
+        min_p_diff: (f64, usize),
+        max_n_diff: (f64, usize),
+    ) -> Self {
+        Self {
+            max_diff,
+            min_diff,
+            mean_diff,
+            max_abs_diff,
+            min_abs_diff,
+            mean_abs_diff,
+            min_p_diff,
+            max_n_diff,
+        }
+    }
+}
+
+fn calculate_feature(diffs: &Vec<LossDiff>) -> Feature {
+    let mut max_diff = f64::MIN;
+    let mut max_diff_step: usize = 0;
+    let mut min_diff = f64::MAX;
+    let mut min_diff_step: usize = 0;
+    let mut sum_diff = 0.0;
+    let mut max_abs_diff: f64 = f64::MIN;
+    let mut max_abs_diff_step: usize = 0;
+    let mut min_abs_diff: f64 = f64::MAX;
+    let mut min_abs_diff_step: usize = 0;
+    let mut sum_abs_diff = 0.0;
+    let mut min_p_diff = f64::MAX;
+    let mut min_p_diff_step: usize = 0;
+    let mut max_n_diff = f64::MIN;
+    let mut max_n_diff_step: usize = 0;
+    let len = diffs.len();
+    for diff in diffs {
+        if max_diff < diff.abs {
+            max_diff = diff.abs;
+            max_diff_step = diff.step as usize;
+        }
+        if min_diff > diff.abs {
+            min_diff = diff.abs;
+            min_diff_step = diff.step as usize;
+        }
+        if max_abs_diff < diff.abs.abs() {
+            max_abs_diff = diff.abs.abs();
+            max_abs_diff_step = diff.step as usize;
+        }
+        if min_abs_diff > diff.abs.abs() {
+            min_abs_diff = diff.abs.abs();
+            min_abs_diff_step = diff.step as usize;
+        }
+        sum_diff += diff.abs;
+        sum_abs_diff += diff.abs.abs();
+        if diff.abs >= 0.0 && min_p_diff > diff.abs {
+            min_p_diff = diff.abs;
+            min_p_diff_step = diff.step as usize;
+        }
+        if diff.abs < 0.0 && max_n_diff < diff.abs {
+            max_n_diff = diff.abs;
+            max_n_diff_step = diff.step as usize;
+        }
+    }
+
+    if len > 0 {
+        Feature::new(
+            (max_diff, max_diff_step),
+            (min_diff, min_diff_step),
+            sum_diff / len as f64,
+            (max_abs_diff, max_abs_diff_step),
+            (min_abs_diff, min_abs_diff_step),
+            sum_abs_diff / len as f64,
+            (min_p_diff, min_p_diff_step),
+            (max_n_diff, max_n_diff_step),
+        )
+    } else {
+        Feature::default()
+    }
+}
+
 #[component]
+#[allow(clippy::too_many_lines)]
 pub fn DrawPage() -> impl IntoView {
-    // draw loss curve
+    let (file_name, set_file_name) = create_signal("[ step, xpu, gpu ]".to_string());
     let (loss, set_loss) = create_signal(vec![]);
+    let (diff, set_diff) = create_signal(vec![]);
+    let (global_loss, set_global_loss) = create_signal(vec![]);
+    let (global_diff, set_global_diff) = create_signal(vec![]);
+    let (global_len, set_global_len) = create_signal(0.0);
+    let (start, set_start) = create_signal(0.0);
+    let (end, set_end) = create_signal(-1.0);
+    let (feature, set_feature) = create_signal(Feature::default());
+
     let loss_series = Series::new(|loss: &Loss| loss.step)
         .line(
             Line::new(|loss: &Loss| loss.xpu)
@@ -40,7 +146,6 @@ pub fn DrawPage() -> impl IntoView {
         );
 
     // draw loss diff curve
-    let (diff, set_diff) = create_signal(Vec::<LossDiff>::new());
     let diff_series = Series::new(|diff: &LossDiff| diff.step)
         .line(
             Line::new(|diff: &LossDiff| diff.abs)
@@ -62,7 +167,8 @@ pub fn DrawPage() -> impl IntoView {
     let (chart_visibility, set_chart_visibility) = create_signal("none");
     let drop_zone_el = create_node_ref::<Div>();
     let update_data = create_action(move |file: &File| {
-        let file = file.clone();
+        let file = file.to_owned();
+        set_file_name(format!("[ {} ]", file.name()));
         logging::log!("File name: {}", file.name());
         logging::log!("File size: {}", file.size());
         logging::log!("File type: {}", file.type_());
@@ -90,8 +196,15 @@ pub fn DrawPage() -> impl IntoView {
                     });
                     loss.push(record);
                 }
-                set_loss(loss);
-                set_diff(diff);
+                let data_len = loss.len();
+                set_feature(calculate_feature(&diff));
+                set_start(0.0);
+                set_end(data_len as f64);
+                set_loss(loss.clone());
+                set_diff(diff.clone());
+                set_global_loss(loss);
+                set_global_diff(diff);
+                set_global_len(data_len as f64);
                 set_chart_visibility("block");
             }) as Box<dyn FnMut(_)>);
 
@@ -118,25 +231,66 @@ pub fn DrawPage() -> impl IntoView {
         false => set_drag_color("#e66956"),
     });
 
+    let replot = move |_| {
+        let start = usize::max(start.get_untracked() as usize, 0);
+        let mut end = usize::min(
+            end.get_untracked() as usize,
+            global_len.get_untracked() as usize,
+        );
+        end = end.max(start);
+        let current_loss = global_loss.get_untracked()[start..end].to_owned();
+        let current_diff = global_diff.get_untracked()[start..end].to_owned();
+        set_feature(calculate_feature(&current_diff));
+        set_loss(current_loss);
+        set_diff(current_diff);
+    };
+
     view! {
         <PageTitle text="Draw Loss Curve"/>
 
-        <div class="container items-center flex flex-col mt-10">
-            <div
-                node_ref=drop_zone_el
-                class="p-4 border-2 border-dashed border-gray-300 rounded-lg"
-            >
-                <p class="text-lg font-semibold" style=move || format!("color: {};", drag_color())>
-                    "Drag and Drop CSV Files"
-                </p>
-            </div>
+        <div
+            node_ref=drop_zone_el
+            class="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg mt-10 mb-5"
+        >
+            <p class="text-lg font-semibold" style=move || format!("color: {};", drag_color())>
+                "Drag and Drop CSV Files"
+            </p>
+            <p class="text-sm font-thin" style=move || format!("color: {};", drag_color())>
+                {file_name}
+            </p>
         </div>
 
         <div
-            class="container items-center mt-10 mb-10 chart-theme"
+            class="container flex flex-col items-center mt-10 mb-20"
             style=move || format!("display: {};", chart_visibility())
         >
-            <Stack spacing=Size::Em(2.0)>
+            <Stack orientation=StackOrientation::Horizontal spacing=Size::Em(3.0)>
+                <FormControl class="flex flex-row">
+                    <Label class="mr-2">"Start"</Label>
+                    <NumberInput
+                        min=0.0
+                        max=global_len
+                        step=1.0
+                        get=start
+                        set=set_start
+                        class="h-10"
+                    />
+                </FormControl>
+
+                <FormControl class="flex flex-row">
+                    <Label class="mr-2">"End"</Label>
+                    <NumberInput min=1.0 max=global_len step=1.0 get=end set=set_end class="h-10"/>
+                </FormControl>
+
+                <button
+                    on:click=replot
+                    class="hover:bg-cyan-600 rounded-md bg-red-400 text-white text-m font-medium pl-2 pr-3 py-2 h-10 shadow-sm ml-2"
+                >
+                    "RePlot"
+                </button>
+            </Stack>
+
+            <div class="chart-theme mt-7">
                 <Chart
                     debug=false
                     aspect_ratio=AspectRatio::from_env_width(400.0)
@@ -160,7 +314,7 @@ pub fn DrawPage() -> impl IntoView {
                     data=loss
                 />
 
-                <hr class="border-t border-dotted border-gray-300" style="width: 100%;"/>
+                <hr class="border-t border-dotted border-gray-300 mt-5 mb-5 w-full"/>
 
                 <Chart
                     debug=false
@@ -184,7 +338,102 @@ pub fn DrawPage() -> impl IntoView {
                     series=diff_series
                     data=diff
                 />
-            </Stack>
+            </div>
+
+            <div class="flex flex-row justify-center mt-5">
+                <Grid
+                    gap=Size::Em(0.5)
+                    class="border border-red-300 border-dashed rounded-md p-4 w-7/12"
+                >
+                    <Row>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Max Diff: "
+                                {move || {
+                                    let f = feature();
+                                    format!("{:.6} (step={})", f.max_diff.0, f.max_diff.1)
+                                }}
+
+                            </P>
+                        </Col>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Min Diff: "
+                                {move || {
+                                    let f = feature();
+                                    format!("{:.6} (step={})", f.min_diff.0, f.min_diff.1)
+                                }}
+
+                            </P>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Max Abs Diff: "
+                                {move || {
+                                    let f = feature();
+                                    format!("{:.6} (step={})", f.max_abs_diff.0, f.max_abs_diff.1)
+                                }}
+
+                            </P>
+                        </Col>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Min Abs Diff: "
+                                {move || {
+                                    let f = feature();
+                                    format!("{:.6} (step={})", f.min_abs_diff.0, f.min_abs_diff.1)
+                                }}
+
+                            </P>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Max N-Diff: "
+                                {move || {
+                                    let f = feature();
+                                    if f.max_n_diff.0 == f64::MIN {
+                                        format!("null (step=null)")
+                                    } else {
+                                        format!("{:.6} (step={})", f.max_n_diff.0, f.max_n_diff.1)
+                                    }
+                                }}
+
+                            </P>
+                        </Col>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Min P-Diff: "
+                                {move || {
+                                    let f = feature();
+                                    if f.min_p_diff.0 == f64::MAX {
+                                        format!("null (step=null)")
+                                    } else {
+                                        format!("{:.6} (step={})", f.min_p_diff.0, f.min_p_diff.1)
+                                    }
+                                }}
+
+                            </P>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Mean Diff: " {move || { format!("{:.6}", feature().mean_diff) }}
+                            </P>
+                        </Col>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Mean Abs Diff: "
+                                {move || { format!("{:.6}", feature().mean_abs_diff) }}
+                            </P>
+                        </Col>
+                    </Row>
+                </Grid>
+            </div>
         </div>
     }
 }
