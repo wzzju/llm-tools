@@ -58,7 +58,7 @@ pub fn MainLayout(#[prop(optional)] children: Option<Children>) -> impl IntoView
                                 {logo}
                                 <Link href=AppRoutes::Home>
                                     <H3 style="margin: 0 0 0 0.5em; font-weight: bold; font-size: large">
-                                        "llm-tools"
+                                        "LLM-Tools"
                                     </H3>
                                 </Link>
                             }

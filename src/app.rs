@@ -101,7 +101,7 @@ pub fn App() -> impl IntoView {
     provide_context(app_layout_ctx);
 
     view! {
-        <Meta name="description" content="llm-tools"/>
+        <Meta name="description" content="LLM-Tools"/>
         <Meta name="viewport" content="width=device-width, initial-scale=1.0"/>
         <Meta name="theme-color" content="#e66956"/>
 
@@ -110,7 +110,7 @@ pub fn App() -> impl IntoView {
         <MetaLink rel="icon" href="/images/favicon.ico"/>
         <MetaLink rel="apple-touch-icon" href="/images/logo.png"/>
 
-        <Title text="Welcome to llm-tools"/>
+        <Title text="Welcome to LLM-Tools"/>
 
         <Root default_theme=LeptonicTheme::default()>
             <Router
