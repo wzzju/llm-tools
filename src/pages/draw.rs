@@ -31,6 +31,8 @@ pub struct Feature {
     max_abs_diff: (f64, usize),
     min_abs_diff: (f64, usize),
     mean_abs_diff: f64,
+    mean_rel_diff: f64,
+    mean_abs_rel_diff: f64,
     min_p_diff: (f64, usize),
     max_n_diff: (f64, usize),
 }
@@ -43,6 +45,8 @@ impl Feature {
         max_abs_diff: (f64, usize),
         min_abs_diff: (f64, usize),
         mean_abs_diff: f64,
+        mean_rel_diff: f64,
+        mean_abs_rel_diff: f64,
         min_p_diff: (f64, usize),
         max_n_diff: (f64, usize),
     ) -> Self {
@@ -53,6 +57,8 @@ impl Feature {
             max_abs_diff,
             min_abs_diff,
             mean_abs_diff,
+            mean_rel_diff,
+            mean_abs_rel_diff,
             min_p_diff,
             max_n_diff,
         }
@@ -70,6 +76,8 @@ fn calculate_feature(diffs: &Vec<LossDiff>) -> Feature {
     let mut min_abs_diff: f64 = f64::MAX;
     let mut min_abs_diff_step: usize = 0;
     let mut sum_abs_diff = 0.0;
+    let mut sum_rel_diff = 0.0;
+    let mut sum_abs_rel_diff = 0.0;
     let mut min_p_diff = f64::MAX;
     let mut min_p_diff_step: usize = 0;
     let mut max_n_diff = f64::MIN;
@@ -94,6 +102,8 @@ fn calculate_feature(diffs: &Vec<LossDiff>) -> Feature {
         }
         sum_diff += diff.abs;
         sum_abs_diff += diff.abs.abs();
+        sum_rel_diff += diff.rel;
+        sum_abs_rel_diff += diff.rel.abs();
         if diff.abs >= 0.0 && min_p_diff > diff.abs {
             min_p_diff = diff.abs;
             min_p_diff_step = diff.step as usize;
@@ -112,6 +122,8 @@ fn calculate_feature(diffs: &Vec<LossDiff>) -> Feature {
             (max_abs_diff, max_abs_diff_step),
             (min_abs_diff, min_abs_diff_step),
             sum_abs_diff / len as f64,
+            sum_rel_diff / len as f64,
+            sum_abs_rel_diff / len as f64,
             (min_p_diff, min_p_diff_step),
             (max_n_diff, max_n_diff_step),
         )
@@ -429,6 +441,20 @@ pub fn DrawPage() -> impl IntoView {
                             <P class="text-cyan-700">
                                 "Mean Abs Diff: "
                                 {move || { format!("{:.6}", feature().mean_abs_diff) }}
+                            </P>
+                        </Col>
+                    </Row>
+                    <Row>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Mean Rel Diff: "
+                                {move || { format!("{:.6}", feature().mean_rel_diff) }}
+                            </P>
+                        </Col>
+                        <Col xs=3>
+                            <P class="text-cyan-700">
+                                "Mean Abs Rel Diff: "
+                                {move || { format!("{:.6}", feature().mean_abs_rel_diff) }}
                             </P>
                         </Col>
                     </Row>
